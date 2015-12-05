@@ -1,0 +1,64 @@
+/**
+* There is an issue with a code here. I am not a programmer (maybe just yet... hopefully), however the code provided
+* here => http://www.remicorson.com/change-the-orders-default-status-by-gateway-in-woocommerce/
+* has some issue with the 'thankyou' page redirect.
+* Normally when an order is created customer gets redirected to the 'Order Received' page showing the details of
+* the order plus some custom notes (if any). 
+* Once I put the code (safe for me, using CodeSnippets) it stopped redirecting to the 'Order Received' page and
+* started redirecting to cart. 
+* As I mentioned, I am not a programmer so I can't really figure out what to change in the code to get it to work as it 
+* should. So, please, Help. =)))
+* The code follows:
+*/
+
+
+remove_filter( 'woocommerce_payment_gateways', 'core_gateways' );
+add_filter( 'woocommerce_payment_gateways', 'my_core_gateways' );
+
+/**
+ * core_gateways function modified.
+ *
+ * @access public
+ * @param mixed $methods
+ * @return void
+ */
+function my_core_gateways( $methods ) {
+	$methods[] = 'WC_Gateway_BACS_custom';
+	$methods[] = 'WC_Gateway_Cheque';
+	$methods[] = 'WC_Gateway_COD';
+	$methods[] = 'WC_Gateway_Paypal';
+	return $methods;
+}
+
+class WC_Gateway_BACS_custom extends WC_Gateway_BACS {
+
+    /**
+     * Process the payment and return the result
+     *
+     * @access public
+     * @param int $order_id
+     * @return array
+     */
+    function process_payment( $order_id ) {
+    	global $woocommerce;
+
+		$order = new WC_Order( $order_id );
+
+		// Mark as processing (that's what we want to change!)
+		$order->update_status('processing', __( 'Awaiting BACS payment', 'woocommerce' ));
+
+		// Reduce stock levels
+		$order->reduce_order_stock();
+
+		// Remove cart
+		$woocommerce->cart->empty_cart();
+
+		// Return thankyou redirect
+		return array(
+			'result' 	=> 'success',
+			'redirect'	=> add_query_arg('key', $order->order_key, add_query_arg('order', $order->id, get_permalink(woocommerce_get_page_id('thanks'))))
+		);
+    }
+
+}
+
